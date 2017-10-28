@@ -1,2 +1,5 @@
-# aws-lambda-manage-rds-connections
-Sample code for dynamically managing RDS/RDBMS connections across a fleet of Lambda functions 
+AWS Lambda Manage RDS Connections
+
+## License
+
+This library is licensed under the Apache 2.0 License. 
