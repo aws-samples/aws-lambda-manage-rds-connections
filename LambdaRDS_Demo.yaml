@@ -1,0 +1,150 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Resources:
+
+  RDSLambdaManageConnectionsRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          -  
+            Effect: "Allow"
+            Principal:
+              Service:
+              - lambda.amazonaws.com
+            Action: "sts:AssumeRole"
+      Path: "/"
+      Policies: 
+        - 
+          PolicyName: "AccessDDB"
+          PolicyDocument: 
+            Version: "2012-10-17"
+            Statement: 
+              - 
+                Effect: "Allow"
+                Action: "dynamodb:*"
+                Resource: [!GetAtt ConnectionsCounter.Arn]
+        - 
+          PolicyName: "AllowMetricAdd"
+          PolicyDocument: 
+            Version: "2012-10-17"
+            Statement: 
+              - 
+                Effect: "Allow"
+                Action: "cloudwatch:PutMetricData"
+                Resource: "*"
+
+  RDSLambdaTestRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          -  
+            Effect: "Allow"
+            Principal:
+              Service:
+              - lambda.amazonaws.com
+            Action: "sts:AssumeRole"
+      Path: "/"
+      Policies: 
+        - 
+          PolicyName: "AllowInvoke"
+          PolicyDocument: 
+            Version: "2012-10-17"
+            Statement: 
+              - 
+                Effect: "Allow"
+                Action: "lambda:InvokeFunction"
+                Resource: !GetAtt LambdaRDSManageConnections.Arn
+        
+
+  ConnectionsCounter:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      ProvisionedThroughput: 
+        ReadCapacityUnits: 10
+        WriteCapacityUnits: 10
+      TableName: ConnectionsCounter
+      AttributeDefinitions: 
+        - 
+          AttributeName: "FunctionName"
+          AttributeType: "S"
+      KeySchema: 
+        - 
+          AttributeName: "FunctionName"
+          KeyType: "HASH"       
+
+
+
+  LambdaRDSManageConnections:
+      Type: AWS::Serverless::Function
+      Properties:
+        Handler: LambdaRDS_ManageConnections.lambda_handler
+        Description: "Lambda function manage RDS connections count"
+        Runtime: python2.7
+        FunctionName: LambdaRDS_ManageConnections
+        Role: !GetAtt RDSLambdaManageConnectionsRole.Arn
+        MemorySize: 128
+        Timeout: 60
+
+  LambdaRDSTest:
+      Type: AWS::Serverless::Function
+      Properties:
+        Handler: LambdaRDS_Test.lambda_handler
+        Description: "Test Lambda function to access a RDS Database and read sample data"
+        Runtime: python2.7
+        FunctionName: LambdaRDS_Test
+        Role: !GetAtt RDSLambdaTestRole.Arn
+        MemorySize: 128
+        Timeout: 60
+        Environment:
+          Variables: 
+            RDS_HOST: !GetAtt RDSMySQL.Endpoint.Address
+            RDS_USERNAME: DemoUser
+            RDS_PASSWORD: Tester123
+            RDS_DB_NAME: TestDB
+            HELPER_FUNCTION_ARN: !GetAtt LambdaRDSManageConnections.Arn
+  
+  RDSMySQL:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      AllocatedStorage: 5
+      DBInstanceClass: db.m4.xlarge
+      DBName: TestDB
+      Engine: mysql      
+      MasterUsername: DemoUser
+      MasterUserPassword: Tester123
+      MultiAZ: False
+      PubliclyAccessible: True      
+      StorageType: gp2
+      VPCSecurityGroups:
+        - !GetAtt RDSSecurityGroup.GroupId
+    DeletionPolicy: Delete
+
+  RDSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow tcp access to RDS instance
+      VpcId:
+        Ref: RDSVPC
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: '3306'
+        ToPort: '3306'
+        CidrIp: 0.0.0.0/0
+
+  RDSVPC:
+    Type: "AWS::EC2::VPC"
+    Properties: 
+      CidrBlock: 172.31.0.0/16
+      EnableDnsSupport: True
+      EnableDnsHostnames: True
+
+Outputs:
+  RDSMySQLEndPoint:
+    Description: The  endpoint of the RDS MySQL instance
+    Value: !GetAtt RDSMySQL.Endpoint.Address
+
+    

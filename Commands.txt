@@ -1,0 +1,5 @@
+aws s3 mb s3://rdslambdademo2017 --region us-west-2
+
+aws cloudformation package --template-file LambdaRDS_Demo.yaml --output-template-file LambdaRDS_Demo_output.yaml --s3-bucket rdslambdademo2017 --region us-west-2
+
+aws cloudformation deploy --region us-west-2 --template-file LambdaRDS_Demo_output.yaml --stack-name RDSLambdaDemoStack --capabilities CAPABILITY_IAM

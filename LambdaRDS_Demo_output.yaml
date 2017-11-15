@@ -1,0 +1,150 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Outputs:
+  RDSMySQLEndPoint:
+    Description: The  endpoint of the RDS MySQL instance
+    Value:
+      Fn::GetAtt:
+      - RDSMySQL
+      - Endpoint.Address
+Resources:
+  ConnectionsCounter:
+    Properties:
+      AttributeDefinitions:
+      - AttributeName: FunctionName
+        AttributeType: S
+      KeySchema:
+      - AttributeName: FunctionName
+        KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 10
+        WriteCapacityUnits: 10
+      TableName: ConnectionsCounter
+    Type: AWS::DynamoDB::Table
+  LambdaRDSManageConnections:
+    Properties:
+      CodeUri: s3://rdslambdademo2017/f294e199208503b097655393a6ef9d45
+      Description: Lambda function manage RDS connections count
+      FunctionName: LambdaRDS_ManageConnections
+      Handler: LambdaRDS_ManageConnections.lambda_handler
+      MemorySize: 128
+      Role:
+        Fn::GetAtt:
+        - RDSLambdaManageConnectionsRole
+        - Arn
+      Runtime: python2.7
+      Timeout: 60
+    Type: AWS::Serverless::Function
+  LambdaRDSTest:
+    Properties:
+      CodeUri: s3://rdslambdademo2017/f294e199208503b097655393a6ef9d45
+      Description: Test Lambda function to access a RDS Database and read sample data
+      Environment:
+        Variables:
+          HELPER_FUNCTION_ARN:
+            Fn::GetAtt:
+            - LambdaRDSManageConnections
+            - Arn
+          RDS_DB_NAME: TestDB
+          RDS_HOST:
+            Fn::GetAtt:
+            - RDSMySQL
+            - Endpoint.Address
+          RDS_PASSWORD: Tester123
+          RDS_USERNAME: DemoUser
+      FunctionName: LambdaRDS_Test
+      Handler: LambdaRDS_Test.lambda_handler
+      MemorySize: 128
+      Role:
+        Fn::GetAtt:
+        - RDSLambdaTestRole
+        - Arn
+      Runtime: python2.7
+      Timeout: 60
+    Type: AWS::Serverless::Function
+  RDSLambdaManageConnectionsRole:
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Action: sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+        Version: '2012-10-17'
+      Path: /
+      Policies:
+      - PolicyDocument:
+          Statement:
+          - Action: dynamodb:*
+            Effect: Allow
+            Resource:
+            - Fn::GetAtt:
+              - ConnectionsCounter
+              - Arn
+          Version: '2012-10-17'
+        PolicyName: AccessDDB
+      - PolicyDocument:
+          Statement:
+          - Action: cloudwatch:PutMetricData
+            Effect: Allow
+            Resource: '*'
+          Version: '2012-10-17'
+        PolicyName: AllowMetricAdd
+    Type: AWS::IAM::Role
+  RDSLambdaTestRole:
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Action: sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+        Version: '2012-10-17'
+      Path: /
+      Policies:
+      - PolicyDocument:
+          Statement:
+          - Action: lambda:InvokeFunction
+            Effect: Allow
+            Resource:
+              Fn::GetAtt:
+              - LambdaRDSManageConnections
+              - Arn
+          Version: '2012-10-17'
+        PolicyName: AllowInvoke
+    Type: AWS::IAM::Role
+  RDSMySQL:
+    Properties:
+      AllocatedStorage: 5
+      DBInstanceClass: db.m4.xlarge
+      DBName: TestDB
+      Engine: mysql
+      MasterUserPassword: Tester123
+      MasterUsername: DemoUser
+      MultiAZ: false
+      PubliclyAccessible: true
+      StorageType: gp2
+      VPCSecurityGroups:
+      - Fn::GetAtt:
+        - RDSSecurityGroup
+        - GroupId
+    Type: AWS::RDS::DBInstance
+  RDSSecurityGroup:
+    Properties:
+      GroupDescription: Allow tcp access to RDS instance
+      SecurityGroupIngress:
+      - CidrIp: 0.0.0.0/0
+        FromPort: '3306'
+        IpProtocol: tcp
+        ToPort: '3306'
+      VpcId:
+        Ref: RDSVPC
+    Type: AWS::EC2::SecurityGroup
+  RDSVPC:
+    Properties:
+      CidrBlock: 172.31.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+    Type: AWS::EC2::VPC
+Transform: AWS::Serverless-2016-10-31
