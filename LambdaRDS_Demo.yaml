@@ -69,11 +69,11 @@ Resources:
       TableName: ConnectionsCounter
       AttributeDefinitions: 
         - 
-          AttributeName: "FunctionName"
+          AttributeName: "RDBMSName"
           AttributeType: "S"
       KeySchema: 
         - 
-          AttributeName: "FunctionName"
+          AttributeName: "RDBMSName"
           KeyType: "HASH"       
 
 
@@ -107,6 +107,24 @@ Resources:
             RDS_DB_NAME: TestDB
             HELPER_FUNCTION_ARN: !GetAtt LambdaRDSManageConnections.Arn
   
+  LambdaRDSCFNInit:
+      Type: AWS::Serverless::Function
+      Properties:
+        Handler: LambdaRDS_CFNInit.lambda_handler
+        Description: "Lambda function which will execute when this CFN template is created, updated or deleted"
+        Runtime: python2.7
+        FunctionName: LambdaRDS_CFNInit
+        Role: !GetAtt RDSLambdaManageConnectionsRole.Arn
+        MemorySize: 128
+        Timeout: 60
+        Environment:
+          Variables: 
+            RDS_HOST: !GetAtt RDSMySQL.Endpoint.Address
+            RDS_USERNAME: DemoUser
+            RDS_PASSWORD: Tester123
+            RDS_DB_NAME: TestDB
+
+
   RDSMySQL:
     Type: AWS::RDS::DBInstance
     Properties:
@@ -119,28 +137,7 @@ Resources:
       MultiAZ: False
       PubliclyAccessible: True      
       StorageType: gp2
-      VPCSecurityGroups:
-        - !GetAtt RDSSecurityGroup.GroupId
     DeletionPolicy: Delete
-
-  RDSSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: Allow tcp access to RDS instance
-      VpcId:
-        Ref: RDSVPC
-      SecurityGroupIngress:
-      - IpProtocol: tcp
-        FromPort: '3306'
-        ToPort: '3306'
-        CidrIp: 0.0.0.0/0
-
-  RDSVPC:
-    Type: "AWS::EC2::VPC"
-    Properties: 
-      CidrBlock: 172.31.0.0/16
-      EnableDnsSupport: True
-      EnableDnsHostnames: True
 
 Outputs:
   RDSMySQLEndPoint:

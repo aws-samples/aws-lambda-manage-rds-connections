@@ -25,7 +25,7 @@ def invokeConnCountManager(incrementCounter):
     response = lambdaClient.invoke(
         FunctionName=helperFunctionARN
         InvocationType='RequestResponse',
-        Payload='{"incrementCounter":' + str.lower(str(incrementCounter)) + '}'
+        Payload='{"incrementCounter":' + str.lower(str(incrementCounter)) + ',"RDBMSName": "Prod_MySQL"}'
     )
     retVal = response['Payload']
     retVal1 = retVal.read()
@@ -50,7 +50,7 @@ def openConnection():
         sys.exit()
 
 
-def handler(event, context):
+def lambda_handler(event, context):
     if invokeConnCountManager(True) == "false":
         print ("Not enough Connections available.")
         return False
@@ -60,7 +60,7 @@ def handler(event, context):
         openConnection()
         #time.sleep(random.randint(0, 1))
         with conn.cursor() as cur:
-            cur.execute("select * from Employee3")
+            cur.execute("select * from Employees")
             for row in cur:
                 item_count += 1
                 print(row)
