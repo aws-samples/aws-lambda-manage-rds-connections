@@ -3,9 +3,8 @@ import pymysql
 import boto3
 import botocore
 import json
-import random
-import time
 import os
+from botocore.vendored import requests
 
 # rds settings
 rds_host = os.environ['RDS_HOST']
@@ -13,13 +12,16 @@ name = os.environ['RDS_USERNAME']
 password = os.environ['RDS_PASSWORD']
 db_name = os.environ['RDS_DB_NAME']
 
+SUCCESS = "SUCCESS"
+FAILED = "FAILED"
+
 
 conn = None
 
 # Get the service resource.
 lambdaClient = boto3.client('lambda')
 dynamodb = boto3.resource('dynamodb')
-table = dynamodb.Table('ConnectionsCounter')
+table = dynamodb.Table(os.environ['DDB_TABLE_NAME'])
 
 
 def openConnection():
@@ -37,14 +39,51 @@ def openConnection():
     except Exception as e:
         print (e)
         print("ERROR: Unexpected error: Could not connect to MySql instance.")
-        sys.exit()
+        raise e
+
+
+# CloudFormation uses a pre-signed S3 URL to receive the response back from the custom resources managed by it. This is a simple function
+# which shall be used to send the response back to CFN custom resource by performing PUT request to the pre-signed S3 URL.
+def sendResponse(event, context, responseStatus, responseData, physicalResourceId):
+    responseUrl = event['ResponseURL']
+
+    print responseUrl
+
+    responseBody = {}
+    responseBody['Status'] = responseStatus
+    responseBody['Reason'] = 'See the details in CloudWatch Log Stream: ' + \
+        context.log_stream_name
+    responseBody['PhysicalResourceId'] = physicalResourceId or context.log_stream_name
+    responseBody['StackId'] = event['StackId']
+    responseBody['RequestId'] = event['RequestId']
+    responseBody['LogicalResourceId'] = event['LogicalResourceId']
+    responseBody['Data'] = responseData
+
+    json_responseBody = json.dumps(responseBody)
+
+    print "Response body:\n" + json_responseBody
+
+    headers = {
+        'content-type': '',
+        'content-length': str(len(json_responseBody))
+    }
+
+    try:
+        response = requests.put(responseUrl,
+                                data=json_responseBody,
+                                headers=headers)
+        print "Status code: " + response.reason
+    except Exception as e:
+        print "send(..) failed executing requests.put(..): " + str(e)
 
 
 def lambda_handler(event, context):
-    
+
     # For Delete requests, immediately send a SUCCESS response.
     print (event)
+    responseData = {}
     if event['RequestType'] == 'Delete':
+        sendResponse(event, context, FAILED, responseData, None)
         return True
 
     try:
@@ -86,4 +125,7 @@ def lambda_handler(event, context):
     except Exception as e:
         # Error while inserting into DDB
         print(e)
+
+    # send response back to CFN
+    sendResponse(event, context, SUCCESS, responseData, None)
     return True

@@ -2,11 +2,12 @@ import sys
 import boto3
 import botocore
 from datetime import datetime
+import os
 
 # Get the service resource.
 dynamodb = boto3.resource('dynamodb')
 cloudWatch = boto3.client('cloudwatch')
-table = dynamodb.Table('ConnectionsCounter')
+table = dynamodb.Table(os.environ['DDB_TABLE_NAME'])
 
 
 def publishMetrics(connectionCount, errorCount, RDBMSName):

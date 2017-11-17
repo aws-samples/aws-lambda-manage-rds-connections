@@ -1,5 +1,6 @@
 
 lib/
-PyMySQL-0.7.11.dist-info/
-pymysql/
+code/PyMySQL-0.7.11.dist-info/
+code/pymysql/
 LambdaRDS_Demo_output.yaml
+

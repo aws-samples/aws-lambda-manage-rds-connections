@@ -34,6 +34,9 @@ Resources:
                 Effect: "Allow"
                 Action: "cloudwatch:PutMetricData"
                 Resource: "*"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        
 
   RDSLambdaTestRole:
     Type: "AWS::IAM::Role"
@@ -58,6 +61,8 @@ Resources:
                 Effect: "Allow"
                 Action: "lambda:InvokeFunction"
                 Resource: !GetAtt LambdaRDSManageConnections.Arn
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
         
 
   ConnectionsCounter:
@@ -66,7 +71,6 @@ Resources:
       ProvisionedThroughput: 
         ReadCapacityUnits: 10
         WriteCapacityUnits: 10
-      TableName: ConnectionsCounter
       AttributeDefinitions: 
         - 
           AttributeName: "RDBMSName"
@@ -79,50 +83,61 @@ Resources:
 
 
   LambdaRDSManageConnections:
-      Type: AWS::Serverless::Function
-      Properties:
-        Handler: LambdaRDS_ManageConnections.lambda_handler
-        Description: "Lambda function manage RDS connections count"
-        Runtime: python2.7
-        FunctionName: LambdaRDS_ManageConnections
-        Role: !GetAtt RDSLambdaManageConnectionsRole.Arn
-        MemorySize: 128
-        Timeout: 60
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: LambdaRDS_ManageConnections.lambda_handler
+      Description: "Lambda function manage RDS connections count"
+      Runtime: python2.7
+      #FunctionName: LambdaRDS_ManageConnections
+      Role: !GetAtt RDSLambdaManageConnectionsRole.Arn
+      MemorySize: 128
+      Timeout: 60
+      Environment:
+        Variables: 
+          DDB_TABLE_NAME: !Ref ConnectionsCounter
 
   LambdaRDSTest:
-      Type: AWS::Serverless::Function
-      Properties:
-        Handler: LambdaRDS_Test.lambda_handler
-        Description: "Test Lambda function to access a RDS Database and read sample data"
-        Runtime: python2.7
-        FunctionName: LambdaRDS_Test
-        Role: !GetAtt RDSLambdaTestRole.Arn
-        MemorySize: 128
-        Timeout: 60
-        Environment:
-          Variables: 
-            RDS_HOST: !GetAtt RDSMySQL.Endpoint.Address
-            RDS_USERNAME: DemoUser
-            RDS_PASSWORD: Tester123
-            RDS_DB_NAME: TestDB
-            HELPER_FUNCTION_ARN: !GetAtt LambdaRDSManageConnections.Arn
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: LambdaRDS_Test.lambda_handler
+      Description: "Test Lambda function to access a RDS Database and read sample data"
+      Runtime: python2.7
+      #FunctionName: LambdaRDS_Test
+      Role: !GetAtt RDSLambdaTestRole.Arn
+      MemorySize: 128
+      Timeout: 60
+      Environment:
+        Variables: 
+          RDS_HOST: !GetAtt RDSMySQL.Endpoint.Address
+          RDS_USERNAME: DemoUser
+          RDS_PASSWORD: Tester123
+          RDS_DB_NAME: TestDB
+          HELPER_FUNCTION_ARN: !GetAtt LambdaRDSManageConnections.Arn
   
   LambdaRDSCFNInit:
-      Type: AWS::Serverless::Function
-      Properties:
-        Handler: LambdaRDS_CFNInit.lambda_handler
-        Description: "Lambda function which will execute when this CFN template is created, updated or deleted"
-        Runtime: python2.7
-        FunctionName: LambdaRDS_CFNInit
-        Role: !GetAtt RDSLambdaManageConnectionsRole.Arn
-        MemorySize: 128
-        Timeout: 60
-        Environment:
-          Variables: 
-            RDS_HOST: !GetAtt RDSMySQL.Endpoint.Address
-            RDS_USERNAME: DemoUser
-            RDS_PASSWORD: Tester123
-            RDS_DB_NAME: TestDB
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: LambdaRDS_CFNInit.lambda_handler
+      Description: "Lambda function which will execute when this CFN template is created, updated or deleted"
+      Runtime: python2.7
+      #FunctionName: LambdaRDS_CFNInit
+      Role: !GetAtt RDSLambdaManageConnectionsRole.Arn
+      MemorySize: 128
+      Timeout: 60
+      Environment:
+        Variables: 
+          RDS_HOST: !GetAtt RDSMySQL.Endpoint.Address
+          RDS_USERNAME: DemoUser
+          RDS_PASSWORD: Tester123
+          RDS_DB_NAME: TestDB
+          DDB_TABLE_NAME: !Ref ConnectionsCounter
+
+  # Wire up the lambda function LambdaRDSCFNInit to execute on stack create, update or delete
+  LambdaRDSCFnTrigger:
+    Type: Custom::LambdaRDS
+    Version: 1.0
+    Properties:
+      ServiceToken: !GetAtt [ LambdaRDSCFNInit, Arn ]
 
 
   RDSMySQL:
