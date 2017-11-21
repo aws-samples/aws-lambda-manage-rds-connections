@@ -1,5 +1,5 @@
-aws s3 mb s3://rdslambdademo2017 --region us-west-2
+aws s3 mb s3://rdslambdademo2017-us-west-2 --region us-west-2
 
-aws cloudformation package --template-file LambdaRDS_Demo.yaml --output-template-file LambdaRDS_Demo_output.yaml --s3-bucket rdslambdademo2017 --region us-west-2
+aws cloudformation package --template-file LambdaRDS_Demo.yaml --output-template-file LambdaRDS_Demo_output.yaml --s3-bucket rdslambdademo2017-us-west-2 --region us-west-2
 
-aws cloudformation deploy --region us-west-2 --template-file LambdaRDS_Demo_output.yaml --stack-name RDSLambdaDemoStack --capabilities CAPABILITY_IAM
+aws cloudformation deploy  --template-file LambdaRDS_Demo_output.yaml --stack-name RDSLambdaDemoStack1 --capabilities CAPABILITY_IAM --parameter-overrides RDSUserName=DemoUser RDSPassword=Tester123 RDSDBName=TestDB --region us-west-2
