@@ -1,5 +1,14 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
+
+Parameters:
+  RDSUserName:
+    Type: String
+  RDSPassword:
+    Type: String
+  RDSDBName:
+    Type: String
+
 Resources:
 
   RDSLambdaManageConnectionsRole:
@@ -60,7 +69,7 @@ Resources:
               - 
                 Effect: "Allow"
                 Action: "lambda:InvokeFunction"
-                Resource: !GetAtt LambdaRDSManageConnections.Arn
+                Resource: "*" #!GetAtt LambdaRDSManageConnections.Arn
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
         
@@ -102,17 +111,29 @@ Resources:
       Handler: LambdaRDS_Test.lambda_handler
       Description: "Test Lambda function to access a RDS Database and read sample data"
       Runtime: python2.7
-      #FunctionName: LambdaRDS_Test
       Role: !GetAtt RDSLambdaTestRole.Arn
       MemorySize: 128
       Timeout: 60
       Environment:
         Variables: 
           RDS_HOST: !GetAtt RDSMySQL.Endpoint.Address
-          RDS_USERNAME: DemoUser
-          RDS_PASSWORD: Tester123
-          RDS_DB_NAME: TestDB
+          RDS_USERNAME: !Ref RDSUserName
+          RDS_PASSWORD: !Ref RDSPassword
+          RDS_DB_NAME: !Ref RDSDBName
           HELPER_FUNCTION_ARN: !GetAtt LambdaRDSManageConnections.Arn
+
+  LambdaRDSTestHarness:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: LambdaRDS_TestHarness.lambda_handler
+      Description: "Provides a simple framework for conducting various tests of your Lambda functions"
+      Runtime: python2.7
+      Role: !GetAtt RDSLambdaTestRole.Arn
+      MemorySize: 1024
+      Timeout: 180
+      Environment:
+        Variables: 
+          TEST_FUNCTION_ARN: !GetAtt LambdaRDSTest.Arn
   
   LambdaRDSCFNInit:
     Type: AWS::Serverless::Function
@@ -120,16 +141,15 @@ Resources:
       Handler: LambdaRDS_CFNInit.lambda_handler
       Description: "Lambda function which will execute when this CFN template is created, updated or deleted"
       Runtime: python2.7
-      #FunctionName: LambdaRDS_CFNInit
       Role: !GetAtt RDSLambdaManageConnectionsRole.Arn
       MemorySize: 128
       Timeout: 60
       Environment:
         Variables: 
           RDS_HOST: !GetAtt RDSMySQL.Endpoint.Address
-          RDS_USERNAME: DemoUser
-          RDS_PASSWORD: Tester123
-          RDS_DB_NAME: TestDB
+          RDS_USERNAME: !Ref RDSUserName
+          RDS_PASSWORD: !Ref RDSPassword
+          RDS_DB_NAME: !Ref RDSDBName
           DDB_TABLE_NAME: !Ref ConnectionsCounter
 
   # Wire up the lambda function LambdaRDSCFNInit to execute on stack create, update or delete
@@ -145,10 +165,10 @@ Resources:
     Properties:
       AllocatedStorage: 5
       DBInstanceClass: db.m4.xlarge
-      DBName: TestDB
+      DBName: !Ref RDSDBName
       Engine: mysql      
-      MasterUsername: DemoUser
-      MasterUserPassword: Tester123
+      MasterUsername: !Ref RDSUserName
+      MasterUserPassword: !Ref RDSPassword
       MultiAZ: False
       PubliclyAccessible: True      
       StorageType: gp2
