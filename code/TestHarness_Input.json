@@ -1,5 +1,4 @@
 {
-    "event": "{'iteration':0}",
     "iterations": 1000,
     "operation": "load"
 }
