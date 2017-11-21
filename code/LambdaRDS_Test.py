@@ -23,7 +23,7 @@ lambdaClient = boto3.client('lambda')
 def invokeConnCountManager(incrementCounter):
     # return True
     response = lambdaClient.invoke(
-        FunctionName=helperFunctionARN
+        FunctionName=helperFunctionARN,
         InvocationType='RequestResponse',
         Payload='{"incrementCounter":' + str.lower(str(incrementCounter)) + ',"RDBMSName": "Prod_MySQL"}'
     )
@@ -47,7 +47,7 @@ def openConnection():
     except Exception as e:
         print (e)
         print("ERROR: Unexpected error: Could not connect to MySql instance.")
-        sys.exit()
+        raise e
 
 
 def lambda_handler(event, context):
@@ -58,7 +58,8 @@ def lambda_handler(event, context):
     item_count = 0
     try:
         openConnection()
-        #time.sleep(random.randint(0, 1))
+        # Introducing artificial random delay to mimic actual DB query time. Remove this code for actual use.
+        time.sleep(random.randint(1, 3))
         with conn.cursor() as cur:
             cur.execute("select * from Employees")
             for row in cur:
