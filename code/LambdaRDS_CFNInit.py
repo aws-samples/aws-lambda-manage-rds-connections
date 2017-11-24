@@ -47,13 +47,13 @@ def openConnection():
 def sendResponse(event, context, responseStatus, responseData, physicalResourceId):
     responseUrl = event['ResponseURL']
 
-    print responseUrl
+    # print responseUrl
 
     responseBody = {}
     responseBody['Status'] = responseStatus
     responseBody['Reason'] = 'See the details in CloudWatch Log Stream: ' + \
         context.log_stream_name
-    responseBody['PhysicalResourceId'] = physicalResourceId or context.log_stream_name
+    responseBody['PhysicalResourceId'] = context.log_stream_name
     responseBody['StackId'] = event['StackId']
     responseBody['RequestId'] = event['RequestId']
     responseBody['LogicalResourceId'] = event['LogicalResourceId']
@@ -81,12 +81,20 @@ def lambda_handler(event, context):
 
     # For Delete requests, immediately send a SUCCESS response.
     print (event)
+
+    json_requestBody = json.dumps(event)
+
+    print "Request body:\n" + json_requestBody
+
     responseData = {}
+    responseStatus = SUCCESS
     if event['RequestType'] == 'Delete':
-        sendResponse(event, context, FAILED, responseData, None)
+        sendResponse(event, context, responseStatus, responseData, None)
         return True
 
     try:
+        
+        # insert test data in RDS instance
         openConnection()
 
         with conn.cursor() as cur:
@@ -102,18 +110,10 @@ def lambda_handler(event, context):
             cur.execute(
                 "Insert into Employees (EmployeeID, FirstName, LastName) Values (null, \"Bob\", \"Rogers\")")
             conn.commit()
-    except Exception as e:
-        # Error while opening connection or processing
-        print(e)
-    finally:
-        #print("Closing Connection")
-        if(conn is not None and conn.open):
-            conn.close()
 
-    # insert a row into DynamoDB
+            print ('Created table Employees and inserted 3 rows.')
 
-    try:
-
+        # insert a row into DynamoDB
         table.put_item(
             Item={
                 'RDBMSName': 'Prod_MySQL',
@@ -122,10 +122,15 @@ def lambda_handler(event, context):
             },
             ConditionExpression='attribute_not_exists(RDBMSName)'
         )
+        print ('Insert one item in ' + os.environ['DDB_TABLE_NAME'])
     except Exception as e:
-        # Error while inserting into DDB
+        # Error while opening connection or processing
         print(e)
-
-    # send response back to CFN
-    sendResponse(event, context, SUCCESS, responseData, None)
+        responseStatus = FAILED
+    finally:
+        #print("Closing Connection")
+        if(conn is not None and conn.open):
+            conn.close()
+        # send response back to CFN
+        sendResponse(event, context, responseStatus, responseData, None)
     return True
