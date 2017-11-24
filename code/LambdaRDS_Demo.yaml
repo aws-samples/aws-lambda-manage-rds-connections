@@ -11,6 +11,238 @@ Parameters:
 
 Resources:
 
+  # create VPC
+  RDSVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+        CidrBlock: 172.31.0.0/16
+        EnableDnsSupport: 'true'
+        EnableDnsHostnames: 'true'
+        Tags:
+        - Key: Name
+          Value: RDSVPC
+
+  # create subnets
+  privateDBSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref RDSVPC
+      CidrBlock: 172.31.0.0/20
+      AvailabilityZone: !Select 
+        - 0
+        - !GetAZs 
+          Ref: 'AWS::Region'
+      Tags:
+        - Key: Name
+          Value: privateDBSubnet1
+
+  privateDBSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref RDSVPC
+      CidrBlock: 172.31.16.0/20
+      AvailabilityZone: !Select 
+        - 1
+        - !GetAZs 
+          Ref: 'AWS::Region'
+      Tags:
+      - Key: Name
+        Value: privateDBSubnet2
+
+  privateLambdaSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref RDSVPC
+      CidrBlock: 172.31.32.0/20
+      AvailabilityZone: !Select 
+        - 0
+        - !GetAZs 
+          Ref: 'AWS::Region'
+      Tags:
+      - Key: Name
+        Value: privateLambdaSubnet1
+
+  privateLambdaSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref RDSVPC
+      CidrBlock: 172.31.48.0/20
+      AvailabilityZone: !Select 
+        - 1
+        - !GetAZs 
+          Ref: 'AWS::Region'
+      Tags:
+      - Key: Name
+        Value: privateLambdaSubnet2
+
+  publicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref RDSVPC
+      CidrBlock: 172.31.64.0/20
+      AvailabilityZone: !Select 
+        - 0
+        - !GetAZs 
+          Ref: 'AWS::Region'
+      Tags:
+      - Key: Name
+        Value: publicSubnet1
+
+  publicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref RDSVPC
+      CidrBlock: 172.31.80.0/20
+      AvailabilityZone: !Select 
+        - 1
+        - !GetAZs 
+          Ref: 'AWS::Region'
+      Tags:
+      - Key: Name
+        Value: publicSubnet2
+
+  # create and attach internet gateway
+  # Internet gatewat and NAT are required so that Lambdas running inside VPC can invoke ManageConnections lambda function (running out of VPC)
+  myInternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: myInternetGateway
+
+  AttachInternetGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref RDSVPC
+      InternetGatewayId: !Ref myInternetGateway
+
+  # create route tables
+  CustomRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref RDSVPC
+      Tags:
+      - Key: Name
+        Value: CustomRouteTable
+
+  myRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref RDSVPC
+      Tags:
+      - Key: Name
+        Value: myRouteTable
+  
+ # attach route tables
+  mySubnetRouteTableAssociation1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref privateDBSubnet1
+      RouteTableId: !Ref myRouteTable
+
+  mySubnetRouteTableAssociation2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref privateDBSubnet2
+      RouteTableId: !Ref myRouteTable
+
+  mySubnetRouteTableAssociation3:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref privateLambdaSubnet1
+      RouteTableId: !Ref myRouteTable
+
+  mySubnetRouteTableAssociation4:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref privateLambdaSubnet2
+      RouteTableId: !Ref myRouteTable
+
+  # public subnets get attached to CustomRouteTable
+  mySubnetRouteTableAssociation5:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref publicSubnet1
+      RouteTableId: !Ref CustomRouteTable
+
+  mySubnetRouteTableAssociation6:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref publicSubnet2
+      RouteTableId: !Ref CustomRouteTable
+
+  # create and attach NAT gateway  
+  myNAT:
+    DependsOn: RDSVPC
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt [myEIP,AllocationId]      
+      SubnetId: !Ref publicSubnet1
+
+  myEIP:
+    DependsOn: AttachInternetGateway
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+
+  # create routes
+
+  RouteToNAT:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref myRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref myNAT
+
+  RouteToInternet:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref CustomRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref myInternetGateway
+
+  # create security groups
+
+  RDSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow My SQL access from lambda subnets
+      VpcId:
+        Ref: RDSVPC
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: '3306'
+        ToPort: '3306'
+        SourceSecurityGroupId : !Ref LambdaSecurityGroup
+      Tags:
+      - Key: Name
+        Value: RDSSecurityGroup
+
+  LambdaSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for Lambda ENIs
+      VpcId:
+        Ref: RDSVPC
+      Tags:
+      - Key: Name
+        Value: LambdaSecurityGroup
+
+  # Create Db subnet groups for RDS instance
+  myDBSubnetGroup: 
+    Type: "AWS::RDS::DBSubnetGroup"
+    Properties: 
+      DBSubnetGroupDescription: "description"
+      SubnetIds: 
+        - !Ref privateDBSubnet1
+        - !Ref privateDBSubnet2
+      Tags: 
+        - 
+          Key: "Name"
+          Value: "myDBSubnetGroup"
+  
+  # create IAM roles
+  # Will be assumed by Manage Connections Lambda function 
   RDSLambdaManageConnectionsRole:
     Type: "AWS::IAM::Role"
     Properties:
@@ -47,6 +279,7 @@ Resources:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
         
 
+  # Will be assumed by LambdaRDSTest and LambdaRDSTestHarness Lambda functions
   RDSLambdaTestRole:
     Type: "AWS::IAM::Role"
     Properties:
@@ -69,9 +302,40 @@ Resources:
               - 
                 Effect: "Allow"
                 Action: "lambda:InvokeFunction"
-                Resource: "*" #!GetAtt LambdaRDSManageConnections.Arn
+                Resource: "*"
+                  #- !GetAtt LambdaRDSManageConnections.Arn
+                  #- !GetAtt LambdaRDSTest.Arn
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+
+  # Will be assumed by RDSLambdaCFNInit Lambda function
+  RDSLambdaCFNInitRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          -  
+            Effect: "Allow"
+            Principal:
+              Service:
+              - lambda.amazonaws.com
+            Action: "sts:AssumeRole"
+      Path: "/"
+      Policies: 
+        - 
+          PolicyName: "AccessDDB"
+          PolicyDocument: 
+            Version: "2012-10-17"
+            Statement: 
+              - 
+                Effect: "Allow"
+                Action: "dynamodb:*"
+                Resource: [!GetAtt ConnectionsCounter.Arn]
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
         
 
   ConnectionsCounter:
@@ -95,7 +359,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: LambdaRDS_ManageConnections.lambda_handler
-      Description: "Lambda function manage RDS connections count"
+      Description: "Lambda function to manage RDS connections count"
       Runtime: python2.7
       #FunctionName: LambdaRDS_ManageConnections
       Role: !GetAtt RDSLambdaManageConnectionsRole.Arn
@@ -114,6 +378,12 @@ Resources:
       Role: !GetAtt RDSLambdaTestRole.Arn
       MemorySize: 128
       Timeout: 60
+      VpcConfig: # For accessing RDS instance
+        SecurityGroupIds:
+          - !Ref LambdaSecurityGroup
+        SubnetIds:
+          - !Ref privateLambdaSubnet1  
+          - !Ref privateLambdaSubnet2
       Environment:
         Variables: 
           RDS_HOST: !GetAtt RDSMySQL.Endpoint.Address
@@ -136,14 +406,31 @@ Resources:
           TEST_FUNCTION_ARN: !GetAtt LambdaRDSTest.Arn
   
   LambdaRDSCFNInit:
+    DependsOn: 
+      - myEIP # for deletion, this lambda function requires access to S3 bucket, hence this dependency. (chained to NAT and internet gateway)
+      - mySubnetRouteTableAssociation1
+      - mySubnetRouteTableAssociation2
+      - mySubnetRouteTableAssociation3
+      - mySubnetRouteTableAssociation4
+      - mySubnetRouteTableAssociation5
+      - mySubnetRouteTableAssociation6
+      - RouteToInternet
+      - RouteToNAT
+      - RDSSecurityGroup
     Type: AWS::Serverless::Function
     Properties:
       Handler: LambdaRDS_CFNInit.lambda_handler
       Description: "Lambda function which will execute when this CFN template is created, updated or deleted"
       Runtime: python2.7
-      Role: !GetAtt RDSLambdaManageConnectionsRole.Arn
+      Role: !GetAtt RDSLambdaCFNInitRole.Arn
       MemorySize: 128
       Timeout: 60
+      VpcConfig: # For accessing RDS instance
+        SecurityGroupIds:
+          - !Ref LambdaSecurityGroup
+        SubnetIds:
+          - !Ref privateLambdaSubnet1  
+          - !Ref privateLambdaSubnet2
       Environment:
         Variables: 
           RDS_HOST: !GetAtt RDSMySQL.Endpoint.Address
@@ -170,8 +457,11 @@ Resources:
       MasterUsername: !Ref RDSUserName
       MasterUserPassword: !Ref RDSPassword
       MultiAZ: False
-      PubliclyAccessible: True      
+      PubliclyAccessible: False      
       StorageType: gp2
+      DBSubnetGroupName: !Ref myDBSubnetGroup
+      VPCSecurityGroups:
+        - !Ref RDSSecurityGroup
     DeletionPolicy: Delete
 
 Outputs:
