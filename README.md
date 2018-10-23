@@ -24,9 +24,9 @@ Dynamic Connections Management tries to address these challenges.
 
 ## Contents
 
-I have chosen python as the launguage of choice and will be using MySQL RDS as a RDBMS solution.
+I have chosen Python as the language of choice and will be using MySQL RDS as a RDBMS solution.
 
-This repository contains the sample code for test and helper Lambda functions, DynamoDB table, MySQL RDS instance as well as a SAM template to deploy the resources in an AWS region of your choice. It also leverages CloudFormation custom resources to prepare the MySQL and DynamoDb instance with test data.
+This repository contains the sample code for test and helper Lambda functions, DynamoDB table, MySQL RDS instance as well as a SAM template to deploy the resources in an AWS region of your choice. It also leverages CloudFormation custom resources to prepare the MySQL and DynamoDB instance with test data.
 
 # Solution Architecture
 
@@ -75,7 +75,7 @@ Following are the outputs from the SAM template
 1. **RDS MySQL Server:** You can use this endpoint to login to your RDS SQL Server. Please note, you might have to modify the security groups associated with your MySQL instance.
 
 ## Execution
- The TestHarness_Input.json file contains sample invocations that you can use to trigger the load test. Navigate to your Lambda consolse, look for the LambdaRDS_TestHarness function and create a test event. You can modify the test iterations count to your choice.
+ The TestHarness_Input.json file contains sample invocations that you can use to trigger the load test. Navigate to your Lambda console, look for the LambdaRDS_TestHarness function and create a test event. You can modify the test iterations count to your choice.
 
  Please note, the LambdaRDS_Test function has a 'sleep' function to simulate some random querying times for the query. You should comment this out for production deployments.
 
