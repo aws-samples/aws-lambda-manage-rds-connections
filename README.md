@@ -15,9 +15,10 @@ The above features mean using traditional connection pooling with Lambda, to acc
 As a result, the best practice is to just use one connection per lambda container, initialized in the global section of the lambda function and relying on the DB server TTL to reclaim it.
 
 Lambda concurrency limits also help mitigate some of the challenges, but some still remain:
-1. Since the concurrency limit is applied to 'Account' level, you might have to create separate AWS accounts to segregate different serverless applications, which have different throttling requirements.
-2. You can apply concurrency limits at the functional level too. In this case, concurrency limits should correspond to 'peak' invocations, which might not be known, and one might end up in overprovisioning / under provisioning of DB connections.
-3. Lambda hotspots: From the DB perspective, if multiple lambda functions (or serverless applications) are accessing the DB, it becomes a challenge to dynamically allocate connections to a Lambda which is currently running 'hot', due to some external factors like time of the day/year, seasonal promotions, application dynamics etc.
+1. Using a global connection variable inside the handler ensures that any new connections stay open for subsequent calls. But in the case of MySQL and PostgreSQL there is risk of session leakage across the open connection that can result in locking issues.
+2. Since the concurrency limit is applied to 'Account' level, you might have to create separate AWS accounts to segregate different serverless applications, which have different throttling requirements.
+3. You can apply concurrency limits at the functional level too. In this case, concurrency limits should correspond to 'peak' invocations, which might not be known, and one might end up in overprovisioning / under provisioning of DB connections.
+4. Lambda hotspots: From the DB perspective, if multiple lambda functions (or serverless applications) are accessing the DB, it becomes a challenge to dynamically allocate connections to a Lambda which is currently running 'hot', due to some external factors like time of the day/year, seasonal promotions, application dynamics etc.
 
 
 Dynamic Connections Management tries to address these challenges.
@@ -33,7 +34,10 @@ This repository contains the sample code for test and helper Lambda functions, D
 
 ![Solution Architecture](images/Solution-Architecture.png)
 
-The solution consists of maintaining a row in a DynamoDB table, which keeps track of the 'Maximum allowed connections' and 'connections in use' for a given DB. A helper lambda function is used to manipulate this count. This helper lambda function is called by the parent lambda, which wants to talk to the DB in question. The parent lambda function calls the helper once when it opens the connection and once when it closes the connection. Depending on the response from the helper lambda function (connections are available or not), the parent lambda function decides its course of action. The helper lambda function also publishes 2 metrics to Cloudwatch: 'Remaining Connections' and 'No Connections Left Error', which can then be used to create an alarm and do something interesting, like backing off the load on the DB or providing an alternate source for querying the same data.
+The solution consists of maintaining a row in a DynamoDB table, which keeps track of the 'Maximum allowed connections' and 'connections in use' for a given DB. A helper lambda function is used to manipulate this count. This helper lambda function is called by the parent lambda, which wants to talk to the DB in question. The parent lambda function calls the helper once when it opens the connection and once when it closes the connection. To avoid any session leakage issues / locking issues, we open and close the connection in in each handler call.
+
+Depending on the response from the helper lambda function (connections are available or not), the parent lambda function decides its course of action. The helper lambda function also publishes 2 metrics to Cloudwatch: 'Remaining Connections' and 'No Connections Left Error', which can then be used to create an alarm and do something interesting, like backing off the load on the DB or providing an alternate source for querying the same data.
+
 
 Below is a snapshot of a test run, blue shows the 'Remaining Connections' (left Y Axis) and orange shows the 'No Connection Left Error' (right Y axis).
 
@@ -92,6 +96,10 @@ Following are the outputs from the SAM template
 4. **LambdaRDS_TestHarness**: Test harness used to simulate load on LambdaRDS_Test function.
 5. **TestHarness_Input**: Input for test harness function.
 6. **LambdaRDS_CFNInit**: Custom resource lambda function used to insert test data into RDS and DynamoDB. Executed when the CloudFormation template is created, updated or deleted.
+
+## Further Reading:
+1. AWS re:Invent 2017 Chalktalk: [Best Practices for using AWS Lambda with RDS-RDBMS Solutions (SRV320)](https://www.slideshare.net/AmazonWebServices/best-practices-for-using-aws-lambda-with-rdsrdbms-solutions-srv320)
+2. AWS Database Blog: [Query your AWS database from your serverless application](https://aws.amazon.com/blogs/database/query-your-aws-database-from-your-serverless-application/)
 
 ## License
 
