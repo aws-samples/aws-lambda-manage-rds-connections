@@ -464,6 +464,13 @@ Resources:
         - !Ref RDSSecurityGroup
     DeletionPolicy: Delete
 
+  RDSLambdaDashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: 'RDSLambda'
+      DashboardBody: !Sub '{ "widgets": [ {"type":"metric", "x":1, "y":0, "width":24, "height":12, "properties": { "metrics": [ [ "RDSLambda", "Remaining Connections", "DBName", "Prod_MySQL", { "stat": "Average" } ], [ ".", "NoConnLeftError", ".", ".", { "yAxis": "right" } ] ], "view": "timeSeries", "stacked": false, "region": "${AWS::Region}", "stat": "Sum", "period": 1, "annotations": { "horizontal": [ { "label": "Max Connections Available", "value": 50, "fill": "below" } ] }, "title": "RDS Lambda", "yAxis": { "left": { "label": "Remaining Connections" }, "right": { "label": "No Connections Error" } }, "start": "-PT1M", "end": "P0D" } }] }'
+
+
 Outputs:
   RDSMySQLEndPoint:
     Description: The  endpoint of the RDS MySQL instance
