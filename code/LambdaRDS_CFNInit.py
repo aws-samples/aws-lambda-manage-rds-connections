@@ -61,7 +61,7 @@ def sendResponse(event, context, responseStatus, responseData, physicalResourceI
 
     json_responseBody = json.dumps(responseBody)
 
-    print "Response body:\n" + json_responseBody
+    print ("Response body:\n" + json_responseBody)
 
     headers = {
         'content-type': '',
@@ -72,26 +72,26 @@ def sendResponse(event, context, responseStatus, responseData, physicalResourceI
         response = requests.put(responseUrl,
                                 data=json_responseBody,
                                 headers=headers)
-        print "Status code: " + response.reason
+        print ("Status code: " + response.reason)
     except Exception as e:
-        print "send(..) failed executing requests.put(..): " + str(e)
+        print ("send(..) failed executing requests.put(..): " + str(e))
 
 
 def lambda_handler(event, context):
 
-    # For Delete requests, immediately send a SUCCESS response.
-    print (event)
+    
+    #print (event)
 
     json_requestBody = json.dumps(event)
-
-    print "Request body:\n" + json_requestBody
+    print ("Request body:\n" + json_requestBody)
 
     responseData = {}
     responseStatus = SUCCESS
+
+    # For Delete requests, immediately send a SUCCESS response.
     if event['RequestType'] == 'Delete':
         sendResponse(event, context, responseStatus, responseData, None)
         return True
-
     try:
         
         # insert test data in RDS instance

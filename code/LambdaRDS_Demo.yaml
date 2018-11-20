@@ -360,7 +360,7 @@ Resources:
     Properties:
       Handler: LambdaRDS_ManageConnections.lambda_handler
       Description: "Lambda function to manage RDS connections count"
-      Runtime: python2.7
+      Runtime: python3.6
       #FunctionName: LambdaRDS_ManageConnections
       Role: !GetAtt RDSLambdaManageConnectionsRole.Arn
       MemorySize: 128
@@ -374,7 +374,7 @@ Resources:
     Properties:
       Handler: LambdaRDS_Test.lambda_handler
       Description: "Test Lambda function to access a RDS Database and read sample data"
-      Runtime: python2.7
+      Runtime: python3.6
       Role: !GetAtt RDSLambdaTestRole.Arn
       MemorySize: 128
       Timeout: 60
@@ -397,7 +397,7 @@ Resources:
     Properties:
       Handler: LambdaRDS_TestHarness.lambda_handler
       Description: "Provides a simple framework for conducting various tests of your Lambda functions"
-      Runtime: python2.7
+      Runtime: python3.6
       Role: !GetAtt RDSLambdaTestRole.Arn
       MemorySize: 1024
       Timeout: 180
@@ -421,7 +421,7 @@ Resources:
     Properties:
       Handler: LambdaRDS_CFNInit.lambda_handler
       Description: "Lambda function which will execute when this CFN template is created, updated or deleted"
-      Runtime: python2.7
+      Runtime: python3.6
       Role: !GetAtt RDSLambdaCFNInitRole.Arn
       MemorySize: 128
       Timeout: 60
