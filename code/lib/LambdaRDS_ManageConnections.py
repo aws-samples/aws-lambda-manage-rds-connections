@@ -44,7 +44,7 @@ def publishMetrics(connectionCount, errorCount, RDBMSName):
         ])
 
 
-def checkConnectionCount(RDBMSName):
+def checkConnectionCount(RDBMSName, table):
     allowConnection = True
     try:
 
@@ -79,7 +79,7 @@ def checkConnectionCount(RDBMSName):
     return allowConnection
 
 
-def returnConnectionToPool(RDBMSName):
+def returnConnectionToPool(RDBMSName, table):
     connectionReturned = True
     try:
         item = table.update_item(
@@ -107,14 +107,3 @@ def returnConnectionToPool(RDBMSName):
             raise e
     return connectionReturned
 
-
-def lambda_handler(event, context):
-    result = True
-    # print("incrementCounter: {}".format(event['incrementCounter']))
-    if (str(event['incrementCounter']) == "True"):
-        # print('Invoking checkConnectionCount')
-        result = checkConnectionCount(event['RDBMSName'])
-    else:
-        # print('Invoking returnConnectionToPool')
-        result = returnConnectionToPool(event['RDBMSName'])
-    return result

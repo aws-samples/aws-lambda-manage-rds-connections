@@ -1,5 +1,4 @@
 import sys
-import pymysql
 import boto3
 import botocore
 import json

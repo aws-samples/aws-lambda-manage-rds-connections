@@ -34,9 +34,11 @@ This repository contains the sample code for test and helper Lambda functions, D
 
 ![Solution Architecture](images/Solution-Architecture.png)
 
-The solution consists of maintaining a row in a DynamoDB table, which keeps track of the 'Maximum allowed connections' and 'connections in use' for a given DB. A helper lambda function is used to manipulate this count. This helper lambda function is called by the parent lambda, which wants to talk to the DB in question. The parent lambda function calls the helper once when it opens the connection and once when it closes the connection. To avoid any session leakage issues / locking issues, we open and close the connection in in each handler call.
+The solution consists of maintaining a row in a DynamoDB table, which keeps track of the 'Maximum allowed connections' and 'Connections in use' for a given DB. A helper function, packaged as a [Lambda Layer](https://aws.amazon.com/about-aws/whats-new/2018/11/aws-lambda-now-supports-custom-runtimes-and-layers/), is used to manipulate this count. This helper  function is called by the parent lambda(s), which wants to talk to the DB in question. The parent lambda function calls the helper once when it opens the connection and once when it closes the connection. To avoid any session leakage issues / locking issues, we open and close the connection in in each handler call, as opposed to maintaining a global connection variable.
 
-Depending on the response from the helper lambda function (connections are available or not), the parent lambda function decides its course of action. The helper lambda function also publishes 2 metrics to Cloudwatch: 'Remaining Connections' and 'No Connections Left Error', which can then be used to create an alarm and do something interesting, like backing off the load on the DB or providing an alternate source for querying the same data.
+Depending on the response from the helper function (connections are available or not), the parent lambda function decides its course of action. The helper function also publishes 2 metrics to Cloudwatch: 'Remaining Connections' and 'No Connections Left Error', which can then be used to create an alarm and do something interesting, like backing off the load on the DB or providing an alternate source for querying the same data.
+
+While manipulating the count in DynamoDB, we make sure that we are using strongly consistent reads/writes by using [DynamoDB conditional writes](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/WorkingWithItems.html#WorkingWithItems.ConditionalUpdate). This means that multiple lambda functions can concurrently manipulate the count. We make sure that we are getting strongly consistent reads by setting the 'ReturnValues' set to 'UPDATED_NEW'. More details [here](https://docs.aws.amazon.com/cli/latest/reference/dynamodb/update-item.html).
 
 
 Below is a snapshot of a test run, blue shows the 'Remaining Connections' (left Y Axis) and orange shows the 'No Connection Left Error' (right Y axis).
@@ -53,25 +55,31 @@ This code depends on a bunch of libraries (not included in this distribution) wh
 
 1. Download the contents of this repository on your local machine (say: project-directory)
 2. The solution is implemented in python, so make sure you have a working python environment on your local machine.
-3. Open a command prompt, navigate to the project directory. Navigate to the /code sub directory and install the following libraries: 
+3. Open a command prompt, navigate to the project directory. Navigate to the /code/lib sub directory and install the following libraries: 
     1. ```bash
         pip install pymysql --target .
         ```
-4. Create a S3 bucket for deployment (note: use the same region throughout the following steps, I have used us-west-2, you can replace it with the region of your choice. Refer to the [region table](https://aws.amazon.com/about-aws/global-infrastructure/regional-product-services/) for service availability.)
-    1. ```bash
-        aws s3 mb s3://rdslambdademo2017-us-west-2 --region us-west-2
-        ```
-5. We shall be using the LambdaRDS_Demo.yaml file as our SAM template.
+4. Zip the contents of the /code/lib sub directory and name the zip file as 'LambdaRDSLayer.zip'. This will form the Lambda Layer which we shall deploy with the SAM template.
 
-6. Package the contents and prepare deployment package using the following command
+5. Create a S3 bucket for deployment (note: use the same region throughout the following steps, I have used us-west-2, you can replace it with the region of your choice. Refer to the [region table](https://aws.amazon.com/about-aws/global-infrastructure/regional-product-services/) for service availability.)
     1. ```bash
-        aws cloudformation package --template-file LambdaRDS_Demo.yaml --output-template-file LambdaRDS_Demo_output.yaml --s3-bucket rdslambdademo2017-us-west-2 --region us-west-2
+        aws s3 mb s3://rds-lambda-demo-2018-us-west-2 --region us-west-2
         ```
-7. Replace the placeholders in the below command with username, password and dbname, and deploy the package:
+
+6. Upload the LambdaRDSLayer.zip file to the newly created S3 bucket.
+    1. ```bash
+        aws s3 cp LambdaRDSLayer.zip s3://rds-lambda-demo-2018-us-west-2/LambdaRDSLayer/ --region us-west-2
+        ```
+
+7. Navigate to the /code/source sub directory. Package the contents and prepare deployment package using the following command
+    1. ```bash
+        aws cloudformation package --template-file LambdaRDS_Demo.yaml --output-template-file LambdaRDS_Demo_output.yaml --s3-bucket rds-lambda-demo-2018-us-west-2 --region us-west-2
+        ```
+8. Replace the placeholders in the below command with username, password and dbname, and deploy the package:
     1. ```bash 
-        aws cloudformation deploy  --template-file LambdaRDS_Demo_output.yaml --stack-name RDSLambdaDemoStack --capabilities CAPABILITY_IAM --parameter-overrides RDSUserName=<username> RDSPassword=<password> RDSDBName=<dbname> --region us-west-2
+        aws cloudformation deploy  --template-file LambdaRDS_Demo_output.yaml --stack-name RDSLambdaDemoStack --capabilities CAPABILITY_IAM --parameter-overrides RDSUserName=DemoUser RDSPassword=Tester123 RDSDBName=TestDB --region us-west-2
         ```
-8. If you want to make changes to the Lambda functions, you can do so on your local machine and redeploy them using the steps 6 and 7 above. The package and deploy commands take care of zipping up the new Lambda files (along with the dependencies) and uploading them to AWS for execution.
+9. If you want to make changes to the Lambda functions, you can do so on your local machine and redeploy them using the steps 6 through 8 above. The package and deploy commands take care of zipping up the new Lambda files (along with the dependencies) and uploading them to AWS for execution.
 
 ## Outputs
 Following are the outputs from the SAM template
@@ -83,7 +91,7 @@ Following are the outputs from the SAM template
 
  Please note, the LambdaRDS_Test function has a 'sleep' function to simulate some random querying times for the query. You should comment this out for production deployments.
 
- Once the test finishes, you can navigate to your CloudWatch console and look for 'RDSLambda' metrics under the 'Custom' namespace. You can then plot these metrics and interact with them.
+ Once the test finishes, you can navigate to your CloudWatch console and use 'RDSLambda' Dashboard (deployed as a part of the SAM template) to look at the metrics. You can then use these metrics to create an alarm.
 
  ![Metrics](images/Metrics.png)
 
@@ -92,10 +100,11 @@ Following are the outputs from the SAM template
 
 1. **LambdaRDS_Demo**: SAM template
 2. **LambdaRDS_Test**: Test Lambda function to simulate opening and closing of DB connections.
-3. **LambdaRDS_ManageConnections**: Helper function: Used to maintain an atomic counter in DynamoDB table, along with publishing metrics to cloudwatch. Should be called by #2 above before opening a connection and after closing a connection.
-4. **LambdaRDS_TestHarness**: Test harness used to simulate load on LambdaRDS_Test function.
-5. **TestHarness_Input**: Input for test harness function.
-6. **LambdaRDS_CFNInit**: Custom resource lambda function used to insert test data into RDS and DynamoDB. Executed when the CloudFormation template is created, updated or deleted.
+3. **LambdaRDS_ManageConnections**: Helper library: Used to maintain an atomic counter in DynamoDB table, along with publishing metrics to cloudwatch. Should be called by #2 above before opening a connection and after closing a connection.
+4. **LambdaRDSLayer**: Lambda Layer, containing the code for 'LambdaRDS_ManageConnections' helper function.
+5. **LambdaRDS_TestHarness**: Test harness used to simulate load on LambdaRDS_Test function.
+6. **TestHarness_Input**: Input for test harness function.
+7. **LambdaRDS_CFNInit**: Custom resource lambda function used to insert test data into RDS and DynamoDB. Executed when the CloudFormation template is created, updated or deleted.
 
 ## Further Reading:
 1. AWS re:Invent 2017 Chalktalk: [Best Practices for using AWS Lambda with RDS-RDBMS Solutions (SRV320)](https://www.slideshare.net/AmazonWebServices/best-practices-for-using-aws-lambda-with-rdsrdbms-solutions-srv320)

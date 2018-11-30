@@ -1,4 +1,6 @@
+
 import sys
+sys.path.insert(0, '/opt')
 import pymysql
 import boto3
 import botocore

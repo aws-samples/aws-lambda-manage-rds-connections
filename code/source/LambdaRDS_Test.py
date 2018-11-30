@@ -1,4 +1,5 @@
 import sys
+sys.path.insert(0, '/opt')
 import pymysql
 import boto3
 import botocore
@@ -6,13 +7,16 @@ import json
 import random
 import time
 import os
+from LambdaRDS_ManageConnections import *
+
 
 # rds settings
 rds_host = os.environ['RDS_HOST']
 name = os.environ['RDS_USERNAME']
 password = os.environ['RDS_PASSWORD']
 db_name = os.environ['RDS_DB_NAME']
-helperFunctionARN = os.environ['HELPER_FUNCTION_ARN']
+#helperFunctionARN = os.environ['HELPER_FUNCTION_ARN']
+table = dynamodb.Table(os.environ['DDB_TABLE_NAME'])
 
 conn = None
 
@@ -21,16 +25,13 @@ lambdaClient = boto3.client('lambda')
 
 
 def invokeConnCountManager(incrementCounter):
-    # return True
-    response = lambdaClient.invoke(
-        FunctionName=helperFunctionARN,
-        InvocationType='RequestResponse',
-        Payload='{"incrementCounter":' + str.lower(str(incrementCounter)) + ',"RDBMSName": "Prod_MySQL"}'
-    )
-    retVal = response['Payload']
-    retVal1 = retVal.read()
-    return retVal1
-
+    result = False
+    if (incrementCounter == True):
+        result = checkConnectionCount("Prod_MySQL", table)
+    else:
+        result = returnConnectionToPool("Prod_MySQL", table)
+    
+    return result
 
 def openConnection():
     global conn
@@ -51,7 +52,7 @@ def openConnection():
 
 
 def lambda_handler(event, context):
-    if invokeConnCountManager(True) == "false":
+    if invokeConnCountManager(True) == False:
         print ("Not enough Connections available.")
         return False
 
