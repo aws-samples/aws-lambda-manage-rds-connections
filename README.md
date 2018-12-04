@@ -107,7 +107,7 @@ Following are the outputs from the SAM template
 7. **LambdaRDS_CFNInit**: Custom resource lambda function used to insert test data into RDS and DynamoDB. Executed when the CloudFormation template is created, updated or deleted.
 
 ## Further Reading:
-1. AWS re:Invent 2017 Chalktalk: [Best Practices for Using AWS Lambda with RDS/RDBMS Solutions (SRV301)](https://www.slideshare.net/AmazonWebServices/best-practices-for-using-aws-lambda-with-rdsrdbms-solutions-srv301r1-aws-reinvent-2018)
+1. AWS re:Invent 2018 Chalktalk: [Best Practices for Using AWS Lambda with RDS/RDBMS Solutions (SRV301)](https://www.slideshare.net/AmazonWebServices/best-practices-for-using-aws-lambda-with-rdsrdbms-solutions-srv301r1-aws-reinvent-2018)
 2. AWS Database Blog: [Query your AWS database from your serverless application](https://aws.amazon.com/blogs/database/query-your-aws-database-from-your-serverless-application/)
 
 ## License
