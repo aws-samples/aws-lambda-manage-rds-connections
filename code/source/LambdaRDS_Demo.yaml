@@ -340,7 +340,7 @@ Resources:
     Properties:
       LayerName: MyLayer
       Description: Layer description
-      ContentUri: 's3://rds-lambda-demo-2018-us-west-2/LambdaRDSLayer/LambdaRDSLayer.zip'
+      ContentUri: '../lib'
       CompatibleRuntimes:
         - python3.6
       LicenseInfo: 'Available under the Apache 2.0 license.'

@@ -49,9 +49,19 @@ You can now create alarms on these metrics and use them to do something interest
 
 # Deployment and Execution
 
+## Prerequisites
+
+1. Download and install the latest version of Python for your OS from [here](https://www.python.org/downloads/). We shall be using Python 3.6 and above.
+
+2. You will be needing [AWS CLI](http://docs.aws.amazon.com/cli/latest/userguide/installing.html) as well. If you already have AWS CLI, please upgrade to a minimum version of 1.16.67.
+    1. ```bash
+        pip install awscli --upgrade --user
+        ```
+Note: If you are using the Windows version of AWS CLI, please use the [Windows msi](https://docs.aws.amazon.com/cli/latest/userguide/install-windows.html#install-msi-on-windows) to upgrade your installation.
+
 ## Instructions
 
-This code depends on a bunch of libraries (not included in this distribution) which you will have to install yourself. You will be needing [AWS CLI](http://docs.aws.amazon.com/cli/latest/userguide/installing.html) as well. The code comes with a SAM template, which you can use to deploy the entire solution.
+This code depends on a bunch of libraries (not included in this distribution) which you will have to install yourself.  The code comes with a SAM template, which you can use to deploy the entire solution.
 
 1. Download the contents of this repository on your local machine (say: project-directory)
 2. The solution is implemented in python, so make sure you have a working python environment on your local machine.
@@ -59,27 +69,21 @@ This code depends on a bunch of libraries (not included in this distribution) wh
     1. ```bash
         pip install pymysql --target .
         ```
-4. Zip the contents of the /code/lib sub directory and name the zip file as 'LambdaRDSLayer.zip'. This will form the Lambda Layer which we shall deploy with the SAM template.
 
-5. Create a S3 bucket for deployment (note: use the same region throughout the following steps, I have used us-west-2, you can replace it with the region of your choice. Refer to the [region table](https://aws.amazon.com/about-aws/global-infrastructure/regional-product-services/) for service availability.)
+4. Create a S3 bucket for deployment (note: use the same region throughout the following steps, I have used us-west-2, you can replace it with the region of your choice. Refer to the [region table](https://aws.amazon.com/about-aws/global-infrastructure/regional-product-services/) for service availability.)
     1. ```bash
         aws s3 mb s3://rds-lambda-demo-2018-us-west-2 --region us-west-2
         ```
 
-6. Upload the LambdaRDSLayer.zip file to the newly created S3 bucket.
-    1. ```bash
-        aws s3 cp LambdaRDSLayer.zip s3://rds-lambda-demo-2018-us-west-2/LambdaRDSLayer/ --region us-west-2
-        ```
-
-7. Navigate to the /code/source sub directory. Package the contents and prepare deployment package using the following command
+5. Navigate to the /code/source sub directory. Package the contents and prepare deployment package using the following command
     1. ```bash
         aws cloudformation package --template-file LambdaRDS_Demo.yaml --output-template-file LambdaRDS_Demo_output.yaml --s3-bucket rds-lambda-demo-2018-us-west-2 --region us-west-2
         ```
-8. Replace the placeholders in the below command with username, password and dbname, and deploy the package:
+6. The SAM template will also create a new MySQL RDS instance and auto-populate it with some test data. Replace the placeholders in the below command with username, password and dbname, and deploy the package:
     1. ```bash 
         aws cloudformation deploy  --template-file LambdaRDS_Demo_output.yaml --stack-name RDSLambdaDemoStack --capabilities CAPABILITY_IAM --parameter-overrides RDSUserName=DemoUser RDSPassword=Tester123 RDSDBName=TestDB --region us-west-2
         ```
-9. If you want to make changes to the Lambda functions, you can do so on your local machine and redeploy them using the steps 6 through 8 above. The package and deploy commands take care of zipping up the new Lambda files (along with the dependencies) and uploading them to AWS for execution.
+7. If you want to make changes to the Lambda functions, you can do so on your local machine and redeploy them using the steps 5 through 7 above. The package and deploy commands take care of zipping up the new Lambda files (along with the dependencies) and uploading them to AWS for execution.
 
 ## Outputs
 Following are the outputs from the SAM template
