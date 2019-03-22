@@ -113,6 +113,7 @@ Following are the outputs from the SAM template
 ## Further Reading:
 1. AWS re:Invent 2018 Chalktalk: [Best Practices for Using AWS Lambda with RDS/RDBMS Solutions (SRV301)](https://www.slideshare.net/AmazonWebServices/best-practices-for-using-aws-lambda-with-rdsrdbms-solutions-srv301r1-aws-reinvent-2018)
 2. AWS Database Blog: [Query your AWS database from your serverless application](https://aws.amazon.com/blogs/database/query-your-aws-database-from-your-serverless-application/)
+3. Whitepaper: [Security Overview of AWS Lambda](https://aws.amazon.com/whitepapers/#serverless)
 
 ## License
 
